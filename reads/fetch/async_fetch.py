@@ -1,11 +1,11 @@
-#!/usr/bin/env python
-
 # Author: Piotr Krzysztof Lis - github.com/straightchlorine
 
 import asyncio
 import aiohttp
 import datetime
-from influxdb_client import InfluxDBClient, Point
+
+from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
+from influxdb_client.client.write.point import Point
 
 class AsyncReadFetcher:
     """
@@ -106,32 +106,31 @@ class AsyncReadFetcher:
         records["fields"] = self._get_reads(data)
         return records 
 
-    def _write_to_db(self, client, records):
+    async def _write_to_db(self, client, record):
         """
         Write the sensor readings to InfluxDB.
 
         Args:
-            client (InfluxDBClient): The InfluxDB client to write to.
+            client (InfluxDBClientAsync): The InfluxDB client to write to.
             records (dict): The sensor readings as records for InfluxDB.
         """
+        write_api = client.write_api()
+        point = Point.from_dict(record, write_precision='ns')
+        await write_api.write(bucket=self._influxdb_bucket,
+                            org=self._influxdb_organization,
+                            record=point)
 
-        with client.write_api() as writer:
-            point = Point.from_dict(records, write_precision='ns')
-            writer.write(bucket=self._influxdb_bucket,
-                         org=self._influxdb_organization,
-                         record=point)
-
-    def _store_sensor_readings(self, records):
+    async def _store_sensor_readings(self, record):
         """
         Store sensor readings within InfluxDB.
 
         Args:
             records (dict): The sensor readings in the form of InfluxDB records.
         """
-        with InfluxDBClient(url=self._db_url,
+        async with InfluxDBClientAsync(url=self._db_url,
                             token=self._influxdb_token,
                             org=self._influxdb_organization) as client:
-            self._write_to_db(client, records)
+             await self._write_to_db(client, record)
 
     async def _request_sensor_readings(self, session):
         """
@@ -154,7 +153,7 @@ class AsyncReadFetcher:
         await asyncio.sleep(1)
         async with aiohttp.ClientSession() as session:
             json = await self._request_sensor_readings(session)
-            self._store_sensor_readings(self._parse_into_records(json))
+            await self._store_sensor_readings(self._parse_into_records(json))
 
     async def fetch(self):
         """
