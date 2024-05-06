@@ -68,3 +68,10 @@ class TestInterface:
         await asyncio.sleep(2)
         result = await self.interface.query_latest()
         assert TestQuery.verify_vals(result.values.tolist()[0])
+
+    @pytest.mark.asyncio
+    async def test_historical(self):
+        self.set_up()
+        await asyncio.sleep(2)
+        result = await self.interface.query_historical('2024-05-05T18:00:00Z', '2024-05-05T21:00:00Z')
+        assert TestQuery.verify_vals(result.values.tolist()[0])
