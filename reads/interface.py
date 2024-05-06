@@ -1,23 +1,24 @@
 import asyncio
 
+import pandas as pd
+
 from reads.fetch.async_fetch import AsyncReadFetcher
 from reads.query.async_query import AsyncQuery
 
-class InfluxDBInterface:
-    # influxdb data
+class DatabaseInterface:
+
     _influxdb_host : str         # host of the influxdb instance
     _influxdb_port : int         # port of the influxdb instance
     _influxdb_token : str        # token to authenticate with influxdb
     _influxdb_organization : str # organization to use within influxdb
     _influxdb_bucket : str       # bucket to save the data into
 
-    # device data
-    _dev_ip : str             # ip of the device sending the data
-    _dev_port : int           # port of the device sending the data
-    _dev_handle : str    # handle to access the data
+    _dev_ip : str     # ip of the device sending the data
+    _dev_port : int   # port of the device sending the data
+    _dev_handle : str # handle to access the data
 
-    _dev_url : str        # address of the device in the network
-    _db_url : str      # address of the influxdb instance
+    _dev_url : str # address of the device in the network
+    _db_url : str  # address of the influxdb instance
 
     def __init__(self, host, port, token, org, bucket, sensors, dev_ip, dev_port, handle = ""):
         """
@@ -34,7 +35,6 @@ class InfluxDBInterface:
             handle (str): The http handle to access the data ("" by default).
             sensors (dict): The sensors and their parameters to read.
         """
-
         self._influxdb_host = host
         self._influxdb_port = port
         self._influxdb_token = token
@@ -48,32 +48,43 @@ class InfluxDBInterface:
         self._dev_url = f"http://{self._dev_ip}:{self._dev_port}/{self._dev_handle}"
         self._db_url = f"http://{self._influxdb_host}:{self._influxdb_port}"
 
-        self.sensors_and_params = sensors
+        self.sensors = sensors
 
         self._fetcher = AsyncReadFetcher(self._influxdb_host,
                                         self._influxdb_port,
                                         self._influxdb_token,
                                         self._influxdb_organization,
                                         self._influxdb_bucket,
-                                        self.sensors_and_params,
+                                        self.sensors,
                                         self._dev_ip,
                                         self._dev_port,
                                         self._dev_handle)
 
-        self._query_api = AsyncQuery(self._influxdb_host,
+        self.query_interface = AsyncQuery(self._influxdb_host,
                                 self._influxdb_port,
                                 self._influxdb_token,
                                 self._influxdb_organization,
                                 self._influxdb_bucket,
-                                self.sensors_and_params)
+                                self.sensors)
 
-        # starting the fetching in the background
-        asyncio.create_task(self._fetcher.fetch())
+    def enable_fetching(self):
+        """
+        Enable fetching from the device specified by dev_ip, dev_port and handle.
 
-    @property
-    def query_api(self):
-        return self._query_api
+        Starts the fetching task in the background, thus should be invoked last
+        in order to avoid blocking the main thread.
+        """
+        asyncio.run(self._fetcher.schedule_fetcher())
 
-    @query_api.getter
-    def query_api(self):
-        return self._query_api
+    async def query_latest(self) -> pd.DataFrame:
+        """
+        Query the latest measurement from the InfluxDB.
+
+        Returns:
+            pd.DataFrame: The latest measurement.
+        """
+        print('<.> querying latest measurement...')
+        query_task = asyncio.create_task(self.query_interface.latest())
+        await query_task
+        result = query_task.result()
+        return result
