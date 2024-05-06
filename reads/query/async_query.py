@@ -148,7 +148,10 @@ class AsyncQuery:
         await client.close()
 
         # turn the tables into a DataFrame and return it
-        return self._into_dataframe(tables)
+        if tables is not None:
+            return  self._into_dataframe(tables)
+        else:
+            return pd.DataFrame()
 
     async def historical_data(self, start: str, end: str) -> pd.DataFrame:
         """
@@ -177,4 +180,34 @@ class AsyncQuery:
 
         await client.close()
 
-        return self._into_dataframe(tables)
+        if tables is not None:
+            return  self._into_dataframe(tables)
+        else:
+            return pd.DataFrame()
+
+    async def query(self, query: str) -> pd.DataFrame:
+        """
+        Perform a custom query on the database.
+
+        Args:
+            query (str): The InfluxDB query to execute.
+
+        Returns:
+            pd.DataFrame: The result of the custom query.
+        """
+        client = await self._get_InfluxDB_client()
+        query_api = client.query_api()
+
+        tables = None
+
+        try:
+            tables = await query_api.query(query)
+        except InfluxDBError as e:
+            print(f"Exception caught while querying the database:\n\n {e.message}")
+
+        await client.close()
+
+        if tables is not None:
+            return  self._into_dataframe(tables)
+        else:
+            return pd.DataFrame()
