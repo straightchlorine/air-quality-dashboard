@@ -107,5 +107,4 @@ class TestQuery:
         self.set_up()
 
         result = await self.query.historical_data('2024-05-05T18:00:00Z', '2024-05-05T21:00:00Z')
-
         assert not result.empty
