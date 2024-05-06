@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
 from influxdb_client.client.flux_table import TableList
+from influxdb_client.client.exceptions import InfluxDBError
 
 class AsyncQuery:
     """
@@ -83,7 +84,7 @@ class AsyncQuery:
 
         return local_timestamps
 
-    def _into_dataframe(self, tables : TableList) -> pd.DataFrame:
+    def _into_dataframe(self, tables) -> pd.DataFrame:
         """
         Turns the tables into a pandas DataFrame.
         Args:
@@ -129,16 +130,51 @@ class AsyncQuery:
         Returns:
             pd.DataFrame: The latest measurement of every parameter.
         """
+
         # get the connection to the database via query api
         client = await self._get_InfluxDB_client()
         query_api = client.query_api()
 
         # query the latest measurement
         query = f'from(bucket:"{self._influxdb_bucket}") |> range(start: -1h) |> last()'
-        tables = await query_api.query(query)
+
+        tables = None
+        try:
+            tables = await query_api.query(query)
+        except InfluxDBError as e:
+            print(f"Exception caught while querying the database:\n\n {e.message}")
 
         # close the connection
         await client.close()
 
         # turn the tables into a DataFrame and return it
+        return self._into_dataframe(tables)
+
+    async def historical_data(self, start: str, end: str) -> pd.DataFrame:
+        """
+        Query historical data from the database.
+
+        Args:
+            start (str): Start time of the query (e.g., '2024-01-01T00:00:00Z').
+            end (str): End time of the query (e.g., '2024-01-02T00:00:00Z').
+
+        Returns:
+            pd.DataFrame: Historical data within the specified time range.
+        """
+
+        # get the connection to the database via query api
+        client = await self._get_InfluxDB_client()
+        query_api = client.query_api()
+
+        # query the data from specified start and finish
+        query = f'from(bucket:"{self._influxdb_bucket}") |> range(start: {start}, stop: {end})'
+
+        tables = None
+        try:
+            tables = await query_api.query(query)
+        except InfluxDBError as e:
+            print(f"Exception caught while querying the database:\n\n {e.message}")
+
+        await client.close()
+
         return self._into_dataframe(tables)
