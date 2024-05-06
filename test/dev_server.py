@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Author: Piotr Krzysztof Lis - github.com/straightchlorine
 
 from flask import Flask, jsonify
@@ -41,9 +39,13 @@ class DevelopmentServer:
         def get_circumstances():
             return jsonify(self.example_json)
 
-    """
-    Start the server on a separate thread.
-    """
     def run_test_server(self):
+        """
+        Start the server on a separate thread.
+        """
         server_thread = Thread(target=self.srv.run)
         server_thread.start()
+
+if __name__ == "__main__":
+    dev_srv = DevelopmentServer()
+    dev_srv.run_test_server()
