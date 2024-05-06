@@ -35,6 +35,7 @@ class DatabaseInterface:
             handle (str): The http handle to access the data ("" by default).
             sensors (dict): The sensors and their parameters to read.
         """
+
         self._influxdb_host = host
         self._influxdb_port = port
         self._influxdb_token = token
@@ -74,6 +75,7 @@ class DatabaseInterface:
         Starts the fetching task in the background, thus should be invoked last
         in order to avoid blocking the main thread.
         """
+
         asyncio.run(self._fetcher.schedule_fetcher())
 
     async def query_latest(self) -> pd.DataFrame:
@@ -83,8 +85,42 @@ class DatabaseInterface:
         Returns:
             pd.DataFrame: The latest measurement.
         """
+
         print('<.> querying latest measurement...')
         query_task = asyncio.create_task(self.query_interface.latest())
+        await query_task
+        result = query_task.result()
+        return result
+
+    async def query_historical(self, start: str, end : str) -> pd.DataFrame:
+        """
+        Query historical data from the database.
+
+        Args:
+            start (str): Start time of the query (e.g., '2024-01-01T00:00:00Z').
+            end (str): End time of the query (e.g., '2024-01-02T00:00:00Z').
+
+        Returns:
+            pd.DataFrame: Historical data within the specified time range.
+        """
+        print('<.> querying historical data...')
+        query_task = asyncio.create_task(self.query_interface.historical_data(start, end))
+        await query_task
+        result = query_task.result()
+        return result
+
+    async def query(self, query: str) -> pd.DataFrame:
+        """
+        Perform a custom query on the database.
+
+        Args:
+            query (str): The InfluxDB query to execute.
+
+        Returns:
+            pd.DataFrame: The result of the custom query.
+        """
+        print('<.> custom query...')
+        query_task = asyncio.create_task(self.query_interface.query(query))
         await query_task
         result = query_task.result()
         return result
