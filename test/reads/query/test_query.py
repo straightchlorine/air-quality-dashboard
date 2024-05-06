@@ -43,9 +43,6 @@ class TestQuery:
             "mq135": ["aceton", "alcohol", "co", "co2", "nh4", "toulen"]
         }
 
-        # values of the testing setup
-        self.values = [2.57, 6.62, 149.56, 28.88, 412.1, 15.12, 998.42, 1016.34, 26.0, 3.14]
-
         # create the AcyncReadFetcher object
         self.fetcher = AsyncReadFetcher(secrets['host'],
                                         secrets['port'],
@@ -64,9 +61,11 @@ class TestQuery:
                                 secrets['bucket'],
                                 sensors)
 
-        asyncio.run(self.fetcher.schedule_fetcher())
+        # needs to ba called directly because of the running loop
+        asyncio.create_task(self.fetcher._fetching_loop())
 
-    def verify_vals(self, to_verify):
+    @staticmethod
+    def verify_vals(to_verify):
         """
         Checks if the values stored in the DataFrame are correct.
 
@@ -75,14 +74,16 @@ class TestQuery:
         Returns:
             bool: True if the values are correct, False otherwise.
         """
+        values = [2.57, 6.62, 149.56, 28.88, 412.1, 15.12, 998.42, 1016.34, 26.0, 3.14]
+
         index = 0
         if to_verify is None:
             return False
         else:
             for num in to_verify:
-                if num in self.values:
+                if num in values:
                     index += 1
-        if index == len(self.values):
+        if index == len(values):
             return True
 
     @pytest.mark.asyncio

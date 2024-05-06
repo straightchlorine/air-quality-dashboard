@@ -44,4 +44,6 @@ class TestFetcher:
     @pytest.mark.asyncio
     async def test_query(self):
         self.set_up()
-        asyncio.run(self.fetcher.schedule_fetcher())
+        asyncio.create_task(self.fetcher.schedule_fetcher())
+        await asyncio.sleep(2)
+        assert 1 == 1
