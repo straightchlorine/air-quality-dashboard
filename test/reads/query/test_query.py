@@ -98,3 +98,14 @@ class TestQuery:
 
         result = await self.query.latest()
         assert self.verify_vals(result.values.tolist()[0])
+
+    @pytest.mark.asyncio
+    async def test_historical(self):
+        """
+        Test the historical_data() method of the AsyncQuery class.
+        """
+        self.set_up()
+
+        result = await self.query.historical_data('2024-05-05T18:00:00Z', '2024-05-05T21:00:00Z')
+
+        assert not result.empty
