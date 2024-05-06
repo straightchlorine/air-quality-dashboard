@@ -1,11 +1,11 @@
 # Author: Piotr Krzysztof Lis - github.com/straightchlorine
 
 import pytest
-import json
-from reads.fetch.async_fetch import AsyncReadFetcher
-from pathlib import Path
 
-from flask import Flask, jsonify
+import asyncio
+import json
+
+from reads.fetch.async_fetch import AsyncReadFetcher
 from test.dev_server import DevelopmentServer
 
 class TestFetcher:
@@ -25,7 +25,6 @@ class TestFetcher:
         self.test_dev_ip = 'localhost'
         self.test_dev_port = 5000
 
-        # sensors, should move it as a parameter soon
         sensors = {
             "bmp180": ["altitude", "pressure", "temperature", "seaLevelPressure"],
             "mq135": ["aceton", "alcohol", "co", "co2", "nh4", "toulen"]
@@ -45,4 +44,4 @@ class TestFetcher:
     @pytest.mark.asyncio
     async def test_query(self):
         self.set_up()
-        await self.fetcher.fetch()
+        asyncio.run(self.fetcher.schedule_fetcher())
