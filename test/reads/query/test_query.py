@@ -21,10 +21,11 @@ class TestQuery:
     """
 
     values : list[float]
-    fetcher : AsyncReadFetcher
-    query : AsyncQuery
     test_dev_ip : str
     test_dev_port : int
+
+    fetcher : AsyncReadFetcher
+    query : AsyncQuery
 
     def set_up(self):
         # start the test server and specifiy the IP and port
@@ -63,8 +64,7 @@ class TestQuery:
                                 secrets['bucket'],
                                 sensors)
 
-        # start fetcher in the background
-        asyncio.create_task(self.fetcher.fetch())
+        asyncio.run(self.fetcher.schedule_fetcher())
 
     def verify_vals(self, to_verify):
         """
@@ -87,10 +87,13 @@ class TestQuery:
 
     @pytest.mark.asyncio
     async def test_latest(self):
+        """
+        Test the latest() method of the AsyncQuery class.
+        """
         self.set_up()
 
         # wait for some readings
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
         result = await self.query.latest()
         assert self.verify_vals(result.values.tolist()[0])
