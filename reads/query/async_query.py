@@ -1,6 +1,7 @@
 # Author: Piotr Krzysztof Lis - github.com/straightchlorine
 
 import pandas as pd
+from datetime import datetime, timedelta
 
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
 from influxdb_client.client.flux_table import TableList
@@ -19,7 +20,6 @@ class AsyncQuery:
         sensors_and_params (dict): The sensors and their parameters to read.
     """
 
-    # influxdb data
     _influxdb_host : str         # host of the influxdb instance
     _influxdb_port : int         # port of the influxdb instance
     _influxdb_token : str        # token to authenticate with influxdb
@@ -28,7 +28,7 @@ class AsyncQuery:
 
     _db_url : str                # address of the influxdb instance
 
-    sensors_and_params : dict    # sensors and their parameters to read
+    sensors : dict    # sensors and their parameters to read
 
     def __init__(self, host, port, token, org, bucket, sensors):
         """
@@ -51,13 +51,37 @@ class AsyncQuery:
 
         self._db_url = f"http://{self._influxdb_host}:{self._influxdb_port}"
 
-        self.sensors_and_params = sensors
+        self.sensors = sensors
 
     async def _get_InfluxDB_client(self) -> InfluxDBClientAsync:
         """ Returns an InfluxDB client. """
         return InfluxDBClientAsync(url=self._db_url,
                                    token=self._influxdb_token,
                                    org=self._influxdb_organization)
+
+    def _convert_to_local_time(self, timestamps):
+        """
+        Convert a collection of UTC timestamps to local time.
+        
+        Args:
+            timestamps (list): A list of UTC timestamps.
+        Returns:
+            list: A list of timestamps in local time.
+        """
+
+        local_timestamps = []
+
+        # get the local offset from UTC
+        local_offset = timedelta(seconds=datetime.now(). astimezone().utcoffset()
+                                                 .total_seconds())
+
+        # add the offset to the timestamps
+        for timestamp in timestamps:
+            utc_time = pd.to_datetime(timestamp)
+            local_time = utc_time + local_offset
+            local_timestamps.append(local_time)
+
+        return local_timestamps
 
     def _into_dataframe(self, tables : TableList) -> pd.DataFrame:
         """
@@ -67,27 +91,40 @@ class AsyncQuery:
         Returns:
             pd.DataFrame: procured measurements as a DataFrame.
         """
-        # unpacking the table 
-        fields = []
-        values = []
+
+        read : dict = {}
         timestamps = set()
+
+        # unpacking the table 
         for table in tables:
             for record in table.records:
-                fields.append(str(record.get_field()))
-                values.append(record.get_value())
+                # get the measurements
+                parameter = record.get_field()
+                measurement = record.get_value()
                 timestamps.add(record.get_time())
 
-        # creating a dictionary with pairs { parameter : measurement }
-        data = {field: values[i] for i, field in enumerate(fields)}
+                # ensure every parameter is present in the dict
+                if parameter not in read:
+                    read[parameter] = []
+                read[parameter].append(float(measurement))
 
-        if len(fields) != len(values):
-            raise ValueError("Fields and values have different lengths.")
+        # convert timestamps to local time
+        local_timestamps = self._convert_to_local_time(timestamps)
 
-        return pd.DataFrame(data=data, index=pd.DatetimeIndex(timestamps))
+        # if there is no time key, create one
+        if 'time' not in read:
+            read["time"] = []
+
+        # add the timestamps to the data dict
+        for timestamp in local_timestamps:
+            read["time"].append(pd.to_datetime(timestamp))
+
+        # return the data as a DataFrame
+        return pd.DataFrame(read)
 
     async def latest(self) -> pd.DataFrame:
         """
-        Queries the latest measurement of every parameter.
+        Query the database for the latest measurement.
 
         Returns:
             pd.DataFrame: The latest measurement of every parameter.
