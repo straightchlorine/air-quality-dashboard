@@ -9,9 +9,10 @@ import json
 
 import pytest
 
+from test.reads.query.test_query import TestQuery
 from reads.interface import DatabaseInterface
 from test.dev_server import DevelopmentServer
-from test.reads.query.test_query import TestQuery
+
 
 
 class TestInterface:
