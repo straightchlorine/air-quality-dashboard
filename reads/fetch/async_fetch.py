@@ -1,11 +1,18 @@
-# Author: Piotr Krzysztof Lis - github.com/straightchlorine
+"""
+Module asyncronously fetches the data from given device and writes the readings
+into InfluxDB as records.
+
+Author: Piotr Krzysztof Lis - github.com/straightchlorine
+"""
 
 import asyncio
-import aiohttp
 import datetime
 
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
 from influxdb_client.client.write.point import Point
+
+import aiohttp
+
 
 class AsyncReadFetcher:
     """
@@ -26,20 +33,22 @@ class AsyncReadFetcher:
         _sensors (dict): Sensors attached to the device.
     """
 
-    _influxdb_host : str         # host of the influxdb instance
-    _influxdb_port : int         # port of the influxdb instance
-    _influxdb_token : str        # token to authenticate with influxdb
-    _influxdb_organization : str # organization to use within influxdb
-    _influxdb_bucket : str       # bucket to save the data into
+    _influxdb_host: str  # host of the influxdb instance
+    _influxdb_port: int  # port of the influxdb instance
+    _influxdb_token: str  # token to authenticate with influxdb
+    _influxdb_organization: str  # organization to use within influxdb
+    _influxdb_bucket: str  # bucket to save the data into
 
-    _dev_ip : str     # ip of the device sending the data
-    _dev_port : int   # port of the device sending the data
-    _dev_handle : str # handle to access the data
+    _dev_ip: str  # ip of the device sending the data
+    _dev_port: int  # port of the device sending the data
+    _dev_handle: str  # handle to access the data
 
-    _dev_url : str    # address of the device in the network
-    _db_url : str     # address of the influxdb instance
+    _dev_url: str  # address of the device in the network
+    _db_url: str  # address of the influxdb instance
 
-    def __init__(self, host, port, token, org, bucket, sensors, dev_ip, dev_port, handle = ""):
+    def __init__(
+        self, host, port, token, org, bucket, sensors, dev_ip, dev_port, handle=""
+    ):
         """
         Initialize the fetcher with the required information.
 
@@ -85,10 +94,10 @@ class AsyncReadFetcher:
         fields = {}
         for sensor in self._sensors:
             for param in self._sensors[sensor]:
-                fields[param] = float(data['nodemcu'][sensor][param])
+                fields[param] = float(data["nodemcu"][sensor][param])
         return fields
 
-    def _parse_into_records(self, data, device_name = 'nodemcu'):
+    def _parse_into_records(self, data, device_name="nodemcu"):
         """
         Parse raw json file into records for InfluxDB.
 
@@ -99,14 +108,12 @@ class AsyncReadFetcher:
 
         records = {
             "measurement": "sensor_data",
-            "tags": {
-                "device": device_name
-            },
+            "tags": {"device": device_name},
             "timestamp": str(datetime.datetime.now()),
         }
 
         records["fields"] = self._get_reads(data)
-        return records 
+        return records
 
     async def _write_to_db(self, client, record):
         """
@@ -117,12 +124,12 @@ class AsyncReadFetcher:
             records (dict): The sensor readings as records for InfluxDB.
         """
 
-        print('<.> writing new read into database...')
+        print("<.> writing new read into database...")
         write_api = client.write_api()
-        point = Point.from_dict(record, write_precision='ns')
-        await write_api.write(bucket=self._influxdb_bucket,
-                            org=self._influxdb_organization,
-                            record=point)
+        point = Point.from_dict(record, write_precision="ns")
+        await write_api.write(
+            bucket=self._influxdb_bucket, org=self._influxdb_organization, record=point
+        )
 
     async def _store_sensor_readings(self, record):
         """
@@ -132,9 +139,11 @@ class AsyncReadFetcher:
             records (dict): The sensor readings in the form of InfluxDB records.
         """
 
-        async with InfluxDBClientAsync(url=self._db_url,
-                            token=self._influxdb_token,
-                            org=self._influxdb_organization) as client:
+        async with InfluxDBClientAsync(
+            url=self._db_url,
+            token=self._influxdb_token,
+            org=self._influxdb_organization,
+        ) as client:
             await self._write_to_db(client, record)
 
     async def _request_sensor_readings(self, session):
