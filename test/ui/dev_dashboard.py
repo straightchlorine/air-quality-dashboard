@@ -18,6 +18,8 @@ import sys
 path_root = Path(__file__).parents[2]
 sys.path.append(str(path_root))
 
+from reads.interface import DatabaseInterface
+from test.dev_server import DevelopmentServer
 
 # start the test server and specifiy the IP and port
 DevelopmentServer().run_test_server()
