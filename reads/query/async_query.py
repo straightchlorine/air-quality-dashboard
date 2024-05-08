@@ -1,11 +1,16 @@
-# Author: Piotr Krzysztof Lis - github.com/straightchlorine
+"""
+Interface for passing queries to the database.
 
-import pandas as pd
+Author: Piotr Krzysztof Lis - github.com/straightchlorine
+"""
+
 from datetime import datetime, timedelta
 
-from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
-from influxdb_client.client.flux_table import TableList
 from influxdb_client.client.exceptions import InfluxDBError
+from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
+
+import pandas as pd
+
 
 class AsyncQuery:
     """
@@ -21,15 +26,15 @@ class AsyncQuery:
         sensors_and_params (dict): The sensors and their parameters to read.
     """
 
-    _influxdb_host : str         # host of the influxdb instance
-    _influxdb_port : int         # port of the influxdb instance
-    _influxdb_token : str        # token to authenticate with influxdb
-    _influxdb_organization : str # organization to use within influxdb
-    _influxdb_bucket : str       # bucket to save the data into
+    _influxdb_host: str  # host of the influxdb instance
+    _influxdb_port: int  # port of the influxdb instance
+    _influxdb_token: str  # token to authenticate with influxdb
+    _influxdb_organization: str  # organization to use within influxdb
+    _influxdb_bucket: str  # bucket to save the data into
 
-    _db_url : str                # address of the influxdb instance
+    _db_url: str  # address of the influxdb instance
 
-    sensors : dict    # sensors and their parameters to read
+    sensors: dict  # sensors and their parameters to read
 
     def __init__(self, host, port, token, org, bucket, sensors):
         """
@@ -55,15 +60,17 @@ class AsyncQuery:
         self.sensors = sensors
 
     async def _get_InfluxDB_client(self) -> InfluxDBClientAsync:
-        """ Returns an InfluxDB client. """
-        return InfluxDBClientAsync(url=self._db_url,
-                                   token=self._influxdb_token,
-                                   org=self._influxdb_organization)
+        """Returns an InfluxDB client."""
+        return InfluxDBClientAsync(
+            url=self._db_url,
+            token=self._influxdb_token,
+            org=self._influxdb_organization,
+        )
 
     def _convert_to_local_time(self, timestamps):
         """
         Convert a collection of UTC timestamps to local time.
-        
+
         Args:
             timestamps (list): A list of UTC timestamps.
         Returns:
@@ -73,8 +80,9 @@ class AsyncQuery:
         local_timestamps = []
 
         # get the local offset from UTC
-        local_offset = timedelta(seconds=datetime.now(). astimezone().utcoffset()
-                                                 .total_seconds())
+        local_offset = timedelta(
+            seconds=datetime.now().astimezone().utcoffset().total_seconds()
+        )
 
         # add the offset to the timestamps
         for timestamp in timestamps:
@@ -93,10 +101,10 @@ class AsyncQuery:
             pd.DataFrame: procured measurements as a DataFrame.
         """
 
-        read : dict = {}
+        read: dict = {}
         timestamps = set()
 
-        # unpacking the table 
+        # unpacking the table
         for table in tables:
             for record in table.records:
                 # get the measurements
@@ -113,7 +121,7 @@ class AsyncQuery:
         local_timestamps = self._convert_to_local_time(timestamps)
 
         # if there is no time key, create one
-        if 'time' not in read:
+        if "time" not in read:
             read["time"] = []
 
         # add the timestamps to the data dict
@@ -149,7 +157,7 @@ class AsyncQuery:
 
         # turn the tables into a DataFrame and return it
         if tables is not None:
-            return  self._into_dataframe(tables)
+            return self._into_dataframe(tables)
         else:
             return pd.DataFrame()
 
@@ -181,7 +189,7 @@ class AsyncQuery:
         await client.close()
 
         if tables is not None:
-            return  self._into_dataframe(tables)
+            return self._into_dataframe(tables)
         else:
             return pd.DataFrame()
 
@@ -208,6 +216,6 @@ class AsyncQuery:
         await client.close()
 
         if tables is not None:
-            return  self._into_dataframe(tables)
+            return self._into_dataframe(tables)
         else:
             return pd.DataFrame()

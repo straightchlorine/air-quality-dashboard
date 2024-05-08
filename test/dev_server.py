@@ -1,14 +1,20 @@
-# Author: Piotr Krzysztof Lis - github.com/straightchlorine
+"""
+Development server for testing purposes, meant to simulate device sending
+readings.
+
+Author: Piotr Krzysztof Lis - github.com/straightchlorine
+"""
 
 from flask import Flask, jsonify
 from threading import Thread
+
 
 class DevelopmentServer:
     """
     A simple development server for testing purposes.
     """
 
-    srv : Flask # The Flask server instance
+    srv: Flask  # The Flask server instance
 
     # Example JSON response from nodemcu
     example_json = {
@@ -17,7 +23,7 @@ class DevelopmentServer:
                 "altitude": "149.56",
                 "pressure": "998.42",
                 "seaLevelPressure": "1016.34",
-                "temperature": "26.00"
+                "temperature": "26.00",
             },
             "mq135": {
                 "aceton": "2.57",
@@ -25,8 +31,8 @@ class DevelopmentServer:
                 "co": "28.88",
                 "co2": "412.10",
                 "nh4": "15.12",
-                "toulen": "3.14"
-            }
+                "toulen": "3.14",
+            },
         }
     }
 
@@ -35,7 +41,8 @@ class DevelopmentServer:
         Setting up the server as well as the handle.
         """
         self.srv = Flask(__name__)
-        @self.srv.route('/circumstances', methods=['GET'])
+
+        @self.srv.route("/circumstances", methods=["GET"])
         def get_circumstances():
             return jsonify(self.example_json)
 
@@ -45,6 +52,7 @@ class DevelopmentServer:
         """
         server_thread = Thread(target=self.srv.run)
         server_thread.start()
+
 
 if __name__ == "__main__":
     dev_srv = DevelopmentServer()
