@@ -1,4 +1,8 @@
-# Author: Piotr Krzysztof Lis - github.com/straightchlorine
+"""
+Test class for AsyncQuery.
+
+Author: Piotr Krzysztof Lis - github.com/straightchlorine
+"""
 
 import pytest
 import json
@@ -7,6 +11,7 @@ import asyncio
 from reads.fetch.async_fetch import AsyncReadFetcher
 from reads.query.async_query import AsyncQuery
 from test.dev_server import DevelopmentServer
+
 
 class TestQuery:
     """
@@ -20,46 +25,50 @@ class TestQuery:
         test_dev_port (int): The port of the test server.
     """
 
-    values : list[float]
-    test_dev_ip : str
-    test_dev_port : int
+    values: list[float]
+    test_dev_ip: str
+    test_dev_port: int
 
-    fetcher : AsyncReadFetcher
-    query : AsyncQuery
+    fetcher: AsyncReadFetcher
+    query: AsyncQuery
 
     def set_up(self):
         # start the test server and specifiy the IP and port
         DevelopmentServer().run_test_server()
-        self.test_dev_ip = 'localhost'
+        self.test_dev_ip = "localhost"
         self.test_dev_port = 5000
 
         # load the secrets
-        with open('secrets/secrets.json', 'r') as f:
+        with open("secrets/secrets.json", "r") as f:
             secrets = json.load(f)
 
         # list of sensors and their parameters
         sensors = {
             "bmp180": ["altitude", "pressure", "temperature", "seaLevelPressure"],
-            "mq135": ["aceton", "alcohol", "co", "co2", "nh4", "toulen"]
+            "mq135": ["aceton", "alcohol", "co", "co2", "nh4", "toulen"],
         }
 
         # create the AcyncReadFetcher object
-        self.fetcher = AsyncReadFetcher(secrets['host'],
-                                        secrets['port'],
-                                        secrets['token'],
-                                        secrets['organization'],
-                                        secrets['bucket'],
-                                        sensors,
-                                        self.test_dev_ip,
-                                        self.test_dev_port,
-                                        secrets['handle'])
+        self.fetcher = AsyncReadFetcher(
+            secrets["host"],
+            secrets["port"],
+            secrets["token"],
+            secrets["organization"],
+            secrets["bucket"],
+            sensors,
+            self.test_dev_ip,
+            self.test_dev_port,
+            secrets["handle"],
+        )
 
-        self.query = AsyncQuery(secrets['host'],
-                                secrets['port'],
-                                secrets['token'],
-                                secrets['organization'],
-                                secrets['bucket'],
-                                sensors)
+        self.query = AsyncQuery(
+            secrets["host"],
+            secrets["port"],
+            secrets["token"],
+            secrets["organization"],
+            secrets["bucket"],
+            sensors,
+        )
 
         # needs to ba called directly because of the running loop
         asyncio.create_task(self.fetcher._fetching_loop())
@@ -106,5 +115,7 @@ class TestQuery:
         """
         self.set_up()
 
-        result = await self.query.historical_data('2024-05-05T18:00:00Z', '2024-05-05T21:00:00Z')
+        result = await self.query.historical_data(
+            "2024-05-05T18:00:00Z", "2024-05-05T21:00:00Z"
+        )
         assert not result.empty
