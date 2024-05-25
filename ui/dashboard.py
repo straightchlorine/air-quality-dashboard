@@ -16,6 +16,10 @@ from watchdog.observers import Observer
 
 
 class Connector:
+    """
+    Class manages the connection to the database.
+    """
+
     def __init__(self):
         self.lock = asyncio.Lock()
 
@@ -44,6 +48,10 @@ class Connector:
         self.measurements = pd.DataFrame()
 
     async def update_data(self):
+        """
+        Append the latest measurement to the DataFrame and return the edited one.
+
+        """
         async with self.lock:
             row = await self.interface.query_latest()
             self.measurements = pd.concat([self.measurements, row])
