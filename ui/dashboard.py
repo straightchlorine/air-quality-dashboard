@@ -4,6 +4,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import ttk
+import os
 
 from ahttpdc.reads.interface import DatabaseInterface
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -17,7 +18,7 @@ from watchdog.observers import Observer
 
 class Connector:
     """
-    Class manages the connection to the database.
+    Klasa zarządzająca połączeniem z bazą danych.
     """
 
     def __init__(self):
@@ -49,17 +50,20 @@ class Connector:
 
     async def update_data(self):
         """
-        Append the latest measurement to the DataFrame and return the edited one.
-
+        Dodaje najnowszy pomiar do DataFrame i zapisuje do pliku CSV.
         """
         async with self.lock:
             row = await self.interface.query_latest()
             self.measurements = pd.concat([self.measurements, row])
+
+            file_exists = os.path.isfile('data.csv')
+            self.measurements.to_csv(
+                'data.csv',
+                index=True,
+                header=not file_exists,
+                mode='a' if file_exists else 'w',
+            )
             return self.measurements
-
-
-# to update data pobiera z bazy danych i dodaje każdy pomiar, zwiększa się
-# z każdym pomiarem, wystarczy pętla i zapisywanie
 
 
 def plot_temp_time(df):
@@ -176,7 +180,7 @@ class MyHandler(FileSystemEventHandler):
 
     def on_modified(self, event):
         if event.src_path.endswith(self.filename):
-            print(f'Detected modification in {self.filename}')
+            print(f'Wykryto modyfikację w {self.filename}')
             df = pd.read_csv(self.filename)
             update_treeview(self.tree, df)
             if current_plot == 'temperature':
@@ -211,9 +215,45 @@ def switch_plot(plot_type):
         plot_temp_nh4(df)
 
 
+def enable(connector):
+    asyncio.run(connector.interface._fetcher.schedule_fetcher())
+
+
+def periodic_update(connector):
+    while True:
+        time.sleep(1)
+        asyncio.run(connector.update_data())
+
+
 if __name__ == '__main__':
+    connector = Connector()
+    fetch_thread = threading.Thread(target=enable, args=(connector,))
+    fetch_thread.start()
+
+    update_thread = threading.Thread(target=periodic_update, args=(connector,))
+    update_thread.start()
+
     filename = 'data.csv'
-    df = pd.read_csv(filename)
+    if os.path.exists(filename):
+        df = pd.read_csv(filename)
+    else:
+        df = pd.DataFrame(
+            columns=[
+                'time',
+                'altitude',
+                'pressure',
+                'seaLevelPressure',
+                'aceton',
+                'alcohol',
+                'co',
+                'co2',
+                'nh4',
+                'toulen',
+                'temperature',
+                'humidity',
+            ]
+        )
+        df.to_csv(filename, index=False)
 
     root = tk.Tk()
     root.title('UI Dane z czujnika')
@@ -270,3 +310,4 @@ if __name__ == '__main__':
     watch_file_thread.start()
 
     root.mainloop()
+
