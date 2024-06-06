@@ -9,11 +9,11 @@ import os
 from ahttpdc.reads.interface import DatabaseInterface
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-import mplcursors
 import pandas as pd
 import seaborn as sns
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+import mplcursors
 
 
 class Connector:
@@ -66,37 +66,67 @@ class Connector:
             return self.measurements
 
 
-def plot_temp_time(df):
-    _plot_temp_time(df)
+def add_interactive_annotations(ax):
+    cursor = mplcursors.cursor(ax, hover=True)
+    cursor.connect(
+        'add',
+        lambda sel: sel.annotation.set_text(
+            f'{sel.artist.get_label()}: {sel.target[1]:.2f}'
+        ),
+    )
+
+    def on_click(event):
+        if not event.inaxes:
+            cursor.remove()
+            ax.figure.canvas.draw()
+
+    ax.figure.canvas.mpl_connect('button_press_event', on_click)
+    return cursor
 
 
-def _plot_temp_time(df):
+def plot_temp_time(df, ax):
+    _plot_temp_time(df, ax)
+    add_interactive_annotations(ax)
+    ax.figure.autofmt_xdate()
+
+
+def plot_co2_temp(df, ax):
+    _plot_co2_temp(df, ax)
+    add_interactive_annotations(ax)
+    ax.figure.autofmt_xdate()
+
+
+def plot_temp_nh4(df, ax):
+    _plot_temp_nh4(df, ax)
+    add_interactive_annotations(ax)
+    ax.figure.autofmt_xdate()
+
+
+def plot_acet_alc_co_nh4_toulen(df, ax):
+    _plot_acet_alc_co_nh4_toulen(df, ax)
+    add_interactive_annotations(ax)
+    ax.figure.autofmt_xdate()
+
+
+def _plot_temp_time(df, ax):
     df = df.tail(10)
     ax.clear()
-    lineplot = sns.lineplot(data=df, x='time', y='temperature', marker='o', ax=ax)
+    sns.lineplot(
+        data=df, x='time', y='temperature', marker='o', ax=ax, label='Temperature'
+    )
     ax.set_xlabel('')
     ax.set_ylabel('Temperature')
     ax.set_title('Temperature over Time')
     ax.grid(True)
     ax.set_xticks(range(len(df['time'])))
     ax.set_xticklabels([str(time)[:19] for time in df['time']], rotation=45, ha='right')
-    fig.tight_layout()
-    canvas.draw_idle()
-    cursor = mplcursors.cursor(lineplot.get_lines(), hover=True)
-    cursor.connect(
-        'add', lambda sel: sel.annotation.set_text(f'Temperature: {sel.target[1]:.2f}')
-    )
 
 
-def plot_co2_temp(df):
-    _plot_co2_temp(df)
-
-
-def _plot_co2_temp(df):
+def _plot_co2_temp(df, ax):
     df = df.tail(10)
     ax.clear()
-    lineplot = sns.lineplot(
-        data=df, x='time', y='co2', marker='o', color='orange', ax=ax
+    sns.lineplot(
+        data=df, x='time', y='co2', marker='o', color='orange', ax=ax, label='co2'
     )
     ax.set_xlabel('')
     ax.set_ylabel('CO2')
@@ -104,61 +134,53 @@ def _plot_co2_temp(df):
     ax.grid(True)
     ax.set_xticks(range(len(df['time'])))
     ax.set_xticklabels([str(time)[:19] for time in df['time']], rotation=45, ha='right')
-    fig.tight_layout()
-    canvas.draw_idle()
-    cursor = mplcursors.cursor(lineplot.get_lines(), hover=True)
-    cursor.connect(
-        'add', lambda sel: sel.annotation.set_text(f'CO2: {sel.target[1]:.2f}')
-    )
 
 
-def plot_temp_nh4(df):
-    _plot_temp_nh4(df)
-
-
-def _plot_temp_nh4(df):
+def _plot_temp_nh4(df, ax):
     df = df.tail(10)
     ax.clear()
-    lineplot_temp = sns.lineplot(
+    sns.lineplot(
         data=df, x='time', y='temperature', marker='o', ax=ax, label='Temperature'
     )
-    lineplot_nh4 = sns.lineplot(
-        data=df, x='time', y='nh4', marker='o', ax=ax, label='NH4', color='green'
-    )
-    lineplot_co = sns.lineplot(
-        data=df, x='time', y='co', marker='o', ax=ax, label='CO', color='red'
+    sns.lineplot(
+        data=df,
+        x='time',
+        y='humidity',
+        marker='o',
+        ax=ax,
+        label='Humidity',
+        color='black',
     )
     ax.set_xlabel('')
     ax.set_ylabel('Values')
-    ax.set_title('Temperature, NH4, and CO over Time')
+    ax.set_title('Temperature and Humidity over Time')
     ax.legend()
     ax.grid(True)
     ax.set_xticks(range(len(df['time'])))
     ax.set_xticklabels([str(time)[:19] for time in df['time']], rotation=45, ha='right')
-    fig.tight_layout()
-    canvas.draw_idle()
 
-    def update_annotation(sel):
-        x_value = sel.target[0]
-        y_value = sel.target[1]
 
-        if sel.artist.get_label() == 'Temperature':
-            value_text = f'Temperature: {y_value:.2f}'
-        elif sel.artist.get_label() == 'NH4':
-            value_text = f'NH4: {y_value:.2f}'
-        elif sel.artist.get_label() == 'CO':
-            value_text = f'CO: {y_value:.2f}'
-        else:
-            value_text = ''
-
-        annotation_text = f'{value_text}'
-        sel.annotation.set_text(annotation_text)
-
-    cursor = mplcursors.cursor(
-        lineplot_temp.get_lines() + lineplot_nh4.get_lines() + lineplot_co.get_lines(),
-        hover=True,
+def _plot_acet_alc_co_nh4_toulen(df, ax):
+    df = df.tail(10)
+    ax.clear()
+    sns.lineplot(data=df, x='time', y='aceton', marker='o', ax=ax, label='Aceton')
+    sns.lineplot(
+        data=df, x='time', y='alcohol', marker='o', ax=ax, label='Alcohol', color='blue'
     )
-    cursor.connect('add', update_annotation)
+    sns.lineplot(data=df, x='time', y='co', marker='o', ax=ax, label='CO', color='red')
+    sns.lineplot(
+        data=df, x='time', y='nh4', marker='o', ax=ax, label='NH4', color='green'
+    )
+    sns.lineplot(
+        data=df, x='time', y='toulen', marker='o', ax=ax, label='Toulen', color='purple'
+    )
+    ax.set_xlabel('')
+    ax.set_ylabel('Values')
+    ax.set_title('Aceton, Alcohol, CO, NH4, and Toulen over Time')
+    ax.legend()
+    ax.grid(True)
+    ax.set_xticks(range(len(df['time'])))
+    ax.set_xticklabels([str(time)[:19] for time in df['time']], rotation=45, ha='right')
 
 
 def update_treeview(tree, df):
@@ -183,12 +205,21 @@ class MyHandler(FileSystemEventHandler):
             print(f'Wykryto modyfikację w {self.filename}')
             df = pd.read_csv(self.filename)
             update_treeview(self.tree, df)
-            if current_plot == 'temperature':
-                plot_temp_time(df)
-            elif current_plot == 'co2':
-                plot_co2_temp(df)
-            else:
-                plot_temp_nh4(df)
+            update_plots(df)
+
+
+def update_plots(df):
+    if current_plot == 'temperature_vs_co2':
+        plot_temp_time(df, ax1)
+        plot_co2_temp(df, ax2)
+    elif current_plot == 'temp_nh4':
+        plot_temp_nh4(df, ax3)
+        plot_acet_alc_co_nh4_toulen(df, ax4)
+
+    canvas1.draw_idle()
+    canvas2.draw_idle()
+    canvas3.draw_idle()
+    canvas4.draw_idle()
 
 
 def watch_file(filename, tree):
@@ -205,54 +236,93 @@ def watch_file(filename, tree):
 
 
 def switch_plot(plot_type):
-    global current_plot
+    global current_plot, cursors
     current_plot = plot_type
-    if plot_type == 'temperature':
-        plot_temp_time(df)
-    elif plot_type == 'co2':
-        plot_co2_temp(df)
-    else:
-        plot_temp_nh4(df)
+    if plot_type == 'temperature_vs_co2':
+        canvas3.get_tk_widget().pack_forget()
+        canvas4.get_tk_widget().pack_forget()
+        canvas1.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        canvas2.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        plot_temp_time(df, ax1)
+        plot_co2_temp(df, ax2)
+    elif plot_type == 'temp_nh4':
+        canvas1.get_tk_widget().pack_forget()
+        canvas2.get_tk_widget().pack_forget()
+        canvas3.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        canvas4.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        plot_temp_nh4(df, ax3)
+        plot_acet_alc_co_nh4_toulen(df, ax4)
+    elif plot_type == 'acet_alc_co_nh4_toulen':
+        canvas1.get_tk_widget().pack_forget()
+        canvas2.get_tk_widget().pack_forget()
+        canvas3.get_tk_widget().pack_forget()
+        canvas4.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        plot_acet_alc_co_nh4_toulen(df, ax4)
+
+    # Remove annotations on plot change
+    for cursor in cursors:
+        cursor.remove()
+
+    canvas1.draw_idle()
+    canvas2.draw_idle()
+    canvas3.draw_idle()
+    canvas4.draw_idle()
+
+
+def switch_plot_others():
+    global current_plot, cursors
+    current_plot = 'temp_nh4'
+    canvas1.get_tk_widget().pack_forget()
+    canvas2.get_tk_widget().pack_forget()
+    canvas4.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    canvas3.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    plot_temp_nh4(df, ax3)
+    plot_acet_alc_co_nh4_toulen(df, ax4)
+
+    # Remove annotations on plot change
+    for cursor in cursors:
+        cursor.remove()
+
+    canvas1.draw_idle()
+    canvas2.draw_idle()
+    canvas3.draw_idle()
+    canvas4.draw_idle()
 
 
 def enable(connector):
-    asyncio.run(connector.interface._fetcher.schedule_fetcher())
+    while True:
+        asyncio.run(connector.update_data())
 
 
 def periodic_update(connector):
     while True:
-        time.sleep(1)
+        time.sleep(60)
         asyncio.run(connector.update_data())
 
 
 if __name__ == '__main__':
     connector = Connector()
-    fetch_thread = threading.Thread(target=enable, args=(connector,))
-    fetch_thread.start()
-
-    update_thread = threading.Thread(target=periodic_update, args=(connector,))
-    update_thread.start()
 
     filename = 'data.csv'
+    columns_order = [
+        'time',
+        'aceton',
+        'alcohol',
+        'altitude',
+        'co',
+        'co2',
+        'humidity',
+        'nh4',
+        'pressure',
+        'seaLevelPressure',
+        'temperature',
+        'toulen',
+    ]
     if os.path.exists(filename):
         df = pd.read_csv(filename)
+        df = df[columns_order]
     else:
-        df = pd.DataFrame(
-            columns=[
-                'time',
-                'altitude',
-                'pressure',
-                'seaLevelPressure',
-                'aceton',
-                'alcohol',
-                'co',
-                'co2',
-                'nh4',
-                'toulen',
-                'temperature',
-                'humidity',
-            ]
-        )
+        df = pd.DataFrame(columns=columns_order)
         df.to_csv(filename, index=False)
 
     root = tk.Tk()
@@ -262,10 +332,10 @@ if __name__ == '__main__':
     tree_frame.pack(pady=10)
 
     tree = ttk.Treeview(tree_frame)
-    tree['columns'] = list(df.columns)
+    tree['columns'] = columns_order
     tree['show'] = 'headings'
 
-    for column in tree['columns']:
+    for column in columns_order:
         tree.heading(column, text=column)
         if column == 'time':
             tree.column(column, width=130)
@@ -274,36 +344,53 @@ if __name__ == '__main__':
 
     tree.pack(side=tk.LEFT)
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    canvas = FigureCanvasTkAgg(fig, master=root)
-    canvas.get_tk_widget().pack()
-
-    update_treeview(tree, df)
-
     button_frame = tk.Frame(root)
     button_frame.pack(pady=10)
 
-    temp_time_button = tk.Button(
+    temp_vs_co2_button = tk.Button(
         button_frame,
-        text='Wykres Temp. vs Czas',
-        command=lambda: switch_plot('temperature'),
+        text='Temperatura & CO2',
+        command=lambda: switch_plot('temperature_vs_co2'),
     )
-    temp_time_button.pack(side='left', padx=10)
+    temp_vs_co2_button.pack(side='left', padx=10)
 
-    co2_temp_button = tk.Button(
-        button_frame, text='Wykres CO2 vs Temp.', command=lambda: switch_plot('co2')
-    )
-    co2_temp_button.pack(side='left', padx=10)
-
-    temp_nh4_button = tk.Button(
+    others_button = tk.Button(
         button_frame,
-        text='Wykres Temp. & NH4 vs Czas',
-        command=lambda: switch_plot('temp_nh4'),
+        text='Others',
+        command=switch_plot_others,
     )
-    temp_nh4_button.pack(side='left', padx=10)
+    others_button.pack(side='left', padx=10)
 
-    current_plot = 'temperature'
-    plot_temp_time(df)
+    current_plot = 'temperature_vs_co2'
+    cursors = []
+
+    # Kontener na wykresy
+    plot_frame = tk.Frame(root)
+    plot_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+
+    fig1, ax1 = plt.subplots(figsize=(8, 6))
+    canvas1 = FigureCanvasTkAgg(fig1, master=plot_frame)
+    canvas1.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    fig2, ax2 = plt.subplots(figsize=(8, 6))
+    canvas2 = FigureCanvasTkAgg(fig2, master=plot_frame)
+    canvas2.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    fig3, ax3 = plt.subplots(figsize=(8, 6))
+    canvas3 = FigureCanvasTkAgg(fig3, master=plot_frame)
+    canvas3.get_tk_widget().pack_forget()
+
+    fig4, ax4 = plt.subplots(figsize=(8, 6))
+    canvas4 = FigureCanvasTkAgg(fig4, master=plot_frame)
+    canvas4.get_tk_widget().pack_forget()
+
+    update_treeview(tree, df)
+
+    # Początkowy wykres
+    plot_temp_time(df, ax1)
+    plot_co2_temp(df, ax2)
+    canvas1.draw_idle()
+    canvas2.draw_idle()
 
     observer = Observer()
     watch_file_thread = threading.Thread(target=watch_file, args=(filename, tree))
