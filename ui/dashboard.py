@@ -1,69 +1,18 @@
-import asyncio
-import json
-import threading
-import time
 import tkinter as tk
 from tkinter import ttk
-import os
-
-from ahttpdc.reads.interface import DatabaseInterface
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
+import mplcursors
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
-import mplcursors
-
-
-class Connector:
-    """
-    Klasa zarządzająca połączeniem z bazą danych.
-    """
-
-    def __init__(self):
-        self.lock = asyncio.Lock()
-
-        with open('secrets/secrets.json', 'r') as f:
-            secrets = json.load(f)
-
-        sensors = {
-            'bmp180': ['altitude', 'pressure', 'seaLevelPressure'],
-            'mq135': ['aceton', 'alcohol', 'co', 'co2', 'nh4', 'toulen'],
-            'ds18b20': ['temperature'],
-            'dht22': ['humidity'],
-        }
-
-        self.interface = DatabaseInterface(
-            secrets['host'],
-            secrets['port'],
-            secrets['token'],
-            secrets['organization'],
-            secrets['bucket'],
-            sensors,
-            secrets['dev_ip'],
-            secrets['dev_port'],
-            secrets['handle'],
-        )
-
-        self.measurements = pd.DataFrame()
-
-    async def update_data(self):
-        """
-        Dodaje najnowszy pomiar do DataFrame i zapisuje do pliku CSV.
-        """
-        async with self.lock:
-            row = await self.interface.query_latest()
-            self.measurements = pd.concat([self.measurements, row])
-
-            file_exists = os.path.isfile('data.csv')
-            self.measurements.to_csv(
-                'data.csv',
-                index=True,
-                header=not file_exists,
-                mode='a' if file_exists else 'w',
-            )
-            return self.measurements
+import threading
+import time
+import asyncio
+from ahttpdc.reads.interface import DatabaseInterface
+import os
+import json
 
 
 def add_interactive_annotations(ax):
@@ -289,19 +238,68 @@ def switch_plot_others():
     canvas4.draw_idle()
 
 
-def enable(connector):
-    while True:
-        asyncio.run(connector.update_data())
+class Connector:
+    """
+    Klasa zarządzająca połączeniem z bazą danych.
+    """
+
+    def __init__(self):
+        self.lock = asyncio.Lock()
+
+        with open('secrets/secrets.json', 'r') as f:
+            secrets = json.load(f)
+
+        sensors = {
+            'bmp180': ['altitude', 'pressure', 'seaLevelPressure'],
+            'mq135': ['aceton', 'alcohol', 'co', 'co2', 'nh4', 'toulen'],
+            'ds18b20': ['temperature'],
+            'dht22': ['humidity'],
+        }
+
+        self.interface = DatabaseInterface(
+            secrets['host'],
+            secrets['port'],
+            secrets['token'],
+            secrets['organization'],
+            secrets['bucket'],
+            sensors,
+            secrets['dev_ip'],
+            secrets['dev_port'],
+            secrets['handle'],
+        )
+
+        self.measurements = pd.DataFrame()
+
+    async def update_data(self):
+        """
+        Dodaje najnowszy pomiar do DataFrame i zapisuje do pliku CSV.
+        """
+        async with self.lock:
+            row = await self.interface.query_latest()
+            self.measurements = pd.concat([self.measurements, row])
+
+            file_exists = os.path.isfile('data.csv')
+            self.measurements.to_csv(
+                'data.csv',
+                index=True,
+                header=not file_exists,
+                mode='a' if file_exists else 'w',
+            )
+            return self.measurements
 
 
 def periodic_update(connector):
     while True:
-        time.sleep(60)
+        time.sleep(1000)
         asyncio.run(connector.update_data())
 
 
 if __name__ == '__main__':
     connector = Connector()
+    connector.interface.enable_fetching()
+
+    update_thread = threading.Thread(target=periodic_update, args=(connector,))
+    update_thread.start()
 
     filename = 'data.csv'
     columns_order = [
@@ -318,12 +316,8 @@ if __name__ == '__main__':
         'temperature',
         'toulen',
     ]
-    if os.path.exists(filename):
-        df = pd.read_csv(filename)
-        df = df[columns_order]
-    else:
-        df = pd.DataFrame(columns=columns_order)
-        df.to_csv(filename, index=False)
+    df = pd.read_csv(filename)
+    df = df[columns_order]
 
     root = tk.Tk()
     root.title('UI Dane z czujnika')
@@ -396,5 +390,5 @@ if __name__ == '__main__':
     watch_file_thread = threading.Thread(target=watch_file, args=(filename, tree))
     watch_file_thread.start()
 
+    # Uruchomienie głównej pętli programu
     root.mainloop()
-
