@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import json
-
+import asyncio
+import threading
 from ahttpdc.reads.interface import DatabaseInterface
 
 # load the secrets
@@ -27,5 +28,11 @@ interface = DatabaseInterface(
     secrets['handle'],
 )
 
+
+def enable():
+    asyncio.run(interface._fetcher.schedule_fetcher())
+
+
 if __name__ == '__main__':
-    interface.enable_fetching()
+    fetch_thread = threading.Thread(target=enable, args=(interface,))
+    fetch_thread.start()
