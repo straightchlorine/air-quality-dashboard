@@ -1,3 +1,4 @@
+import multiprocessing
 import tkinter as tk
 from tkinter import ttk
 import pandas as pd
@@ -7,7 +8,7 @@ import matplotlib.pyplot as plt
 import mplcursors
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
-import threading
+import threading 
 import time
 import asyncio
 from ahttpdc.reads.interface import DatabaseInterface
@@ -151,7 +152,6 @@ class MyHandler(FileSystemEventHandler):
 
     def on_modified(self, event):
         if event.src_path.endswith(self.filename):
-            print(f'Wykryto modyfikację w {self.filename}')
             df = pd.read_csv(self.filename)
             update_treeview(self.tree, df)
             update_plots(df)
@@ -173,16 +173,14 @@ def update_plots(df):
 
 def watch_file(filename, tree):
     event_handler = MyHandler(filename, tree)
-    observer.schedule(event_handler, path='.', recursive=False)
+    observer.schedule(event_handler, path=filename, recursive=False)
     observer.start()
-    print(f'Watching {filename} for changes...')
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
-
 
 def switch_plot(plot_type):
     global current_plot, cursors
@@ -277,10 +275,9 @@ class Connector:
         async with self.lock:
             row = await self.interface.query_latest()
             self.measurements = pd.concat([self.measurements, row])
-
-            file_exists = os.path.isfile('data.csv')
+            file_exists = os.path.isfile('./data/data.csv')
             self.measurements.to_csv(
-                'data.csv',
+                'data/data.csv',
                 index=True,
                 header=not file_exists,
                 mode='a' if file_exists else 'w',
@@ -288,20 +285,29 @@ class Connector:
             return self.measurements
 
 
-def periodic_update(connector):
-    while True:
-        time.sleep(1000)
-        asyncio.run(connector.update_data())
+def update_loop(connector):
+    async def loop():
+        while True:
+            await connector.update_data()
+            await asyncio.sleep(1)
 
+    asyncio.run(loop())
 
 if __name__ == '__main__':
     connector = Connector()
     connector.interface.enable_fetching()
 
-    update_thread = threading.Thread(target=periodic_update, args=(connector,))
+    update_thread = multiprocessing.Process(target=update_loop, args=(connector,), name='updater')
     update_thread.start()
 
-    filename = 'data.csv'
+    filename = './data/data.csv'
+
+    if os.path.exists(filename):
+        df = pd.read_csv(filename)
+    else:
+        print(f"Error: The file {filename} does not exist.")
+
+    df = pd.read_csv(filename)
     columns_order = [
         'time',
         'aceton',
@@ -316,7 +322,6 @@ if __name__ == '__main__':
         'temperature',
         'toulen',
     ]
-    df = pd.read_csv(filename)
     df = df[columns_order]
 
     root = tk.Tk()
@@ -337,6 +342,10 @@ if __name__ == '__main__':
             tree.column(column, width=90)
 
     tree.pack(side=tk.LEFT)
+
+    observer = Observer()
+    watch_thread = threading.Thread(target=watch_file, args=(filename, tree,), name='updater', daemon=True)
+    watch_thread.start()
 
     button_frame = tk.Frame(root)
     button_frame.pack(pady=10)
@@ -385,10 +394,6 @@ if __name__ == '__main__':
     plot_co2_temp(df, ax2)
     canvas1.draw_idle()
     canvas2.draw_idle()
-
-    observer = Observer()
-    watch_file_thread = threading.Thread(target=watch_file, args=(filename, tree))
-    watch_file_thread.start()
 
     # Uruchomienie głównej pętli programu
     root.mainloop()
